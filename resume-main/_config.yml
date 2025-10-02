@@ -1,0 +1,131 @@
+# Site
+repository: sproogen/resume-theme
+favicon: images/favicon.ico
+
+# Content configuration version
+version: 2
+
+# Personal info
+name: Lekshmi Narayanan Kolappan
+title: Site Reliablity Engineer
+email: lekshmi.kola@gmail.com
+website: kayelen.com
+
+# Dark Mode (true/false/never)
+darkmode: false
+
+# Social links
+twitter_username: karthikkln
+github_username:  lforlinux
+# stackoverflow_username: "00000001"
+# dribbble_username: jekyll
+# facebook_username: jekyll
+# flickr_username: jekyll
+instagram_username: karthikkln
+linkedin_username: lekshmin
+# xing_username: jekyll
+# pinterest_username: jekyll
+# youtube_username: globalmtb
+# googleplus_username: +jekyll
+# orcid_username: 0000-0000-0000-0000
+
+# Additional icon links
+additional_links:
+- title: kayelen.com
+  icon: fas fa-globe
+  url: https://www.kayelen.com
+# - title: another link
+#   icon: font awesome brand icon name (eg. fab fa-twitter) (https://fontawesome.com/icons?d=gallery&m=free)
+#   url: Link url (eg. https://google.com)
+
+# Google Analytics and Tag Manager
+# Using more than one of these may cause issues with reporting
+# gtm: "GTM-0000000"
+# gtag: "UA-00000000-0"
+# google_analytics: "UA-00000000-0"
+
+# About Section
+# about_title: About Me
+# about_profile_image: images/profile.jpg
+about_content: | # this will include new lines to allow paragraphs
+  Hi, my name's Lekshmi narayan and Experienced SRE/DevOps Engineer with a demonstrated history working with Open source tools in the software industry with 10 years as an individual contributor.
+
+  I am most skilled in: <mark>AWS</mark> <mark>DevOps</mark>  <mark>SRE</mark>  <mark>Kubernets</mark>  <mark>Docker</mark> and <mark>Linux</mark>
+
+content:
+
+  - title: Experience # Title for the section
+    layout: list # Type of content section (list/text)
+    content:
+      - layout: left
+        title: Adstream Inc
+        link: https://www.adstream.com/
+        # link_text: ADP.COM
+        sub_title: Site Reliablity Engineer. 
+        caption: March 2022 - Till date
+        description: | # this will include new lines to allow paragraphs
+            - Contributing setting up observability tools and performance monitoring.
+          
+      - layout: left
+        title: ADP Inc
+        link: adp.com
+        sub_title: Senior DevOps Engineer. 
+        caption: December 2017 - December 2021
+        description: | # this will include new lines to allow paragraphs
+            - Leveraged Kubernetes via EKS and other AWS SaaS tools to cut release times by 20%.
+            - Moudularized AWS IAM as a module via terraform and leveraged the module for authentication with the KIAM server on EKS Kubernetes.
+            - Assisted with refining the SDLC to fit system needs using Jenkins CI/CD.
+            - Developed an infrastructure audit and automated testing framework for integration with AWS cloud infrastructure leveraging the Chef's Inspec.
+            - Perform as a DevOps enabler, specializing in Agile and IaC, Orchestration, Monitoring, and Alerting.
+      - layout: left
+        title: NTT Inc
+        link: https://www.ntt.com/
+        sub_title: Systems Analyst 
+        caption: December 2015 - December 2017
+        description: | # this will include new lines to allow paragraphs
+            - Assisted the transition of a monolith Node Application into the MicroServices world.
+            - Implemented the container orchestration using Docker swarm with minimized container maintenance and self-healing capability by 50%.
+            - Migated the public used Docker registry to self-hosted DTR for better security.
+            - Accomplished solution-based approach to software development using unified reuse artifacts by Jfrog Artifactory.
+      - layout: left
+        title: Comodo Inc
+        link: https://www.comodo.com/
+        sub_title: Linux administrator.
+        caption: Nay 2013 - December 2015
+        description: | # this will include new lines to allow paragraphs
+            - Set up and managed 40 Linux servers with 99.95% up-time.
+            - Centralized the configuration management leveraging Ansible for 100+ servers.
+            - Automated web server content deployments via Ansible playbooks.
+            - Deployed 2+ software iterations per day for 2 years that Increased customer satisfaction by 25%.
+  - title: Education # Title for the section
+    layout: list # Type of content section (list/text)
+    content:
+      - layout: left
+        title: Anna university
+        caption: 2008
+        sub_title: Bachelor of Engineering
+        description: | # this will include new lines to allow paragraphs
+          During my time at college i learnt Electronics and communication engineering. 
+
+  - title: A Little More About Me
+    layout: text
+    content: | # this will include new lines to allow paragraphs
+      Alongside my interests in networks and software engineering some of my other interests and hobbies are:
+      - [Photography](https://www.flickr.com/photos/65054046@N03/)
+      - [Book Reading](https://www.goodreads.com/user/show/27766970-lekshminarayanan-karthik)
+      - [Tech Blogging](https://kayelen.medium.com/) 
+
+
+# Footer
+footer_show_references: true
+# references_title: References on request (Override references text)
+
+# Build settings
+remote_theme: sproogen/resume-theme
+
+sass:
+  sass_dir: _sass
+  style: compressed
+
+plugins:
+ - jekyll-seo-tag
