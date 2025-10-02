@@ -1,0 +1,65 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# LocalStack
+.localstack/
+localstack-data/
+
+# Logs
+*.log
+commit-timeline.log
+commit-process.pid
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Build outputs
+dist/
+build/
+*.zip
+
+
+# Timeline scripts (don't commit these)
+scripts/*timeline*.sh
+scripts/better-timeline.sh
+scripts/realistic-*.sh
+scripts/background-*.sh
+scripts/natural-*.sh
+scripts/start-*.sh
+commit-timeline.log
+commit-process.pid
+COMMIT_TIMELINE_INFO.md
+QUICK_REFERENCE.md
