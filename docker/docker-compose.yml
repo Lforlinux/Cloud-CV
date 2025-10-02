@@ -1,0 +1,152 @@
+# Cloud CV - Docker Compose Configuration
+# Local development environment for SRE/DevOps Engineer Portfolio
+
+version: '3.8'
+
+services:
+  # Frontend web server
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: cloud-cv-frontend
+    ports:
+      - "4000:80"
+    environment:
+      - NODE_ENV=development
+      - API_URL=${API_URL:-}
+    volumes:
+      - ../frontend:/usr/share/nginx/html:ro
+    networks:
+      - cloud-cv-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Local development server (alternative to nginx)
+  dev-server:
+    image: node:18-alpine
+    container_name: cloud-cv-dev
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - API_URL=${API_URL:-}
+    volumes:
+      - ../frontend:/app:ro
+      - /app/node_modules
+    command: >
+      sh -c "
+        npm install -g http-server &&
+        http-server /app -p 3000 -c-1 --cors
+      "
+    networks:
+      - cloud-cv-network
+    profiles:
+      - dev
+
+  # Monitoring and observability
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: cloud-cv-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - cloud-cv-network
+    profiles:
+      - monitoring
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: cloud-cv-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    networks:
+      - cloud-cv-network
+    profiles:
+      - monitoring
+
+  # LocalStack - Local AWS Cloud Stack
+  localstack:
+    image: localstack/localstack:latest
+    container_name: cloud-cv-localstack
+    ports:
+      - "4566:4566"            # LocalStack Gateway
+      - "4510-4559:4510-4559"  # External services port range
+    environment:
+      # LocalStack Configuration
+      - SERVICES=s3,cloudfront,lambda,dynamodb,apigateway,iam,cloudwatch,logs,route53,acm
+      - DEBUG=1
+      - PERSISTENCE=1
+      - LAMBDA_EXECUTOR=docker
+      - LAMBDA_REMOVE_CONTAINERS=true
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - HOST_TMP_FOLDER=${TMPDIR:-/tmp/}localstack
+      - TMPDIR=/tmp/localstack
+      # AWS Configuration
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localhost:4566
+    volumes:
+      - "${TMPDIR:-/tmp/}localstack:/tmp/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - ../infra/lambda:/opt/code/localstack/lambda:ro
+    networks:
+      - cloud-cv-network
+    profiles:
+      - localstack
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # LocalStack Init - Initialize AWS resources
+  localstack-init:
+    image: amazon/aws-cli:latest
+    container_name: cloud-cv-localstack-init
+    depends_on:
+      - localstack
+    environment:
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - AWS_ENDPOINT_URL=http://localstack:4566
+    volumes:
+      - ../scripts/localstack-init.sh:/scripts/init.sh:ro
+    command: ["/bin/bash", "/scripts/init.sh"]
+    networks:
+      - cloud-cv-network
+    profiles:
+      - localstack
+    restart: "no"
+
+networks:
+  cloud-cv-network:
+    driver: bridge
+    name: cloud-cv-network
+
+volumes:
+  grafana-storage:
+    name: cloud-cv-grafana-storage

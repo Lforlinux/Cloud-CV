@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{{ page.description | default: site.description }}">
+    <meta name="keywords" content="{{ page.keywords | default: 'SRE, DevOps, AWS, Terraform, Docker, Kubernetes, CI/CD, Site Reliability Engineering' }}">
+    <meta name="author" content="{{ site.author }}">
+    
+    <!-- SEO Tag -->
+    {% seo %}
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="{{ page.title | default: site.title }}">
+    <meta property="og:description" content="{{ page.description | default: site.description }}">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="{{ page.url | absolute_url }}">
+    <meta property="og:image" content="{{ '/assets/images/og-image.jpg' | absolute_url }}">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{{ page.title | default: site.title }}">
+    <meta name="twitter:description" content="{{ page.description | default: site.description }}">
+    <meta name="twitter:image" content="{{ '/assets/images/og-image.jpg' | absolute_url }}">
+    {% if site.twitter.username %}
+    <meta name="twitter:site" content="@{{ site.twitter.username }}">
+    {% endif %}
+    
+    <title>{{ page.title | default: site.title }}</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ '/assets/css/styles.css' | relative_url }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="{{ '/favicon.ico' | relative_url }}">
+    
+    <!-- RSS Feed -->
+    <link rel="alternate" type="application/rss+xml" title="{{ site.title }}" href="{{ '/feed.xml' | relative_url }}">
+    
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="{{ '/sitemap.xml' | relative_url }}">
+    
+    <!-- API URL for JavaScript -->
+    <meta name="api-url" content="{{ site.api_url | default: '' }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="header-content">
+                <div class="profile-section">
+                    <div class="profile-image">
+                        <img src="{{ '/assets/images/profile.jpg' | relative_url | default: 'https://via.placeholder.com/150x150/4F46E5/FFFFFF?text=SRE' }}" alt="{{ site.author }}" id="profile-img">
+                    </div>
+                    <div class="profile-info">
+                        <h1 class="name">{{ site.author }}</h1>
+                        <p class="title">{{ site.title_tagline | default: 'Site Reliability & DevOps Engineer' }}</p>
+                        <p class="experience">{{ site.experience | default: '15+ Years Experience' }}</p>
+                    </div>
+                </div>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>{{ site.email }}</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-phone"></i>
+                        <span>{{ site.phone | default: '+1 (555) 123-4567' }}</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>{{ site.location | default: 'San Francisco, CA' }}</span>
+                    </div>
+                    {% if site.linkedin.username %}
+                    <div class="contact-item">
+                        <i class="fab fa-linkedin"></i>
+                        <a href="https://linkedin.com/in/{{ site.linkedin.username }}" target="_blank">LinkedIn Profile</a>
+                    </div>
+                    {% endif %}
+                    {% if site.github.username %}
+                    <div class="contact-item">
+                        <i class="fab fa-github"></i>
+                        <a href="https://github.com/{{ site.github.username }}" target="_blank">GitHub Profile</a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="navigation">
+            <ul>
+                <li><a href="#about">About</a></li>
+                <li><a href="#skills">Skills</a></li>
+                <li><a href="#experience">Experience</a></li>
+                <li><a href="#projects">Projects</a></li>
+                <li><a href="#certifications">Certifications</a></li>
+                <li><a href="#contact">Contact</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            {{ content }}
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <div class="footer-content">
+                <p>&copy; {{ 'now' | date: "%Y" }} {{ site.author }}. Built with AWS, Terraform, and modern DevOps practices.</p>
+                <div class="footer-links">
+                    {% if site.github.username %}
+                    <a href="https://github.com/{{ site.github.username }}/Cloud-CV" target="_blank">
+                        <i class="fab fa-github"></i> View Source
+                    </a>
+                    {% endif %}
+                    <a href="{{ site.url }}" target="_blank">
+                        <i class="fas fa-globe"></i> Portfolio
+                    </a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="{{ '/assets/js/script.js' | relative_url }}"></script>
+    
+    <!-- Analytics (if configured) -->
+    {% if site.google_analytics %}
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.google_analytics }}"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', '{{ site.google_analytics }}');
+    </script>
+    {% endif %}
+</body>
+</html>
