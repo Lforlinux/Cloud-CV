@@ -55,49 +55,18 @@ jobs:
       run: |
         aws s3 cp frontend/index.html s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "text/html"
         aws s3 cp frontend/styles.css s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "text/css"
+        aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/javascript"
         aws s3 cp cv.pdf s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/pdf"
         
-    - name: Update and Upload Script.js
+    - name: Fix Script.js and Invalidate Cache
       run: |
-        echo "Updating script.js with API Gateway URL..."
+        echo "Re-uploading script.js to fix visitor counter..."
+        aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/script.js --content-type "application/javascript"
         
-        # Create a backup of the original script
-        cp frontend/script.js frontend/script.js.backup
+        echo "Invalidating CloudFront cache for script.js..."
+        aws cloudfront create-invalidation --distribution-id ${{ steps.terraform-outputs.outputs.cloudfront_distribution_id }} --paths "/script.js"
         
-        # Use a simpler approach - just replace the API URL with sed but more carefully
-        API_URL="${{ steps.terraform-outputs.outputs.api_gateway_url }}/visitor-count"
-        
-        # Replace the API URL using a more precise pattern
-        sed -i "s|this\.apiUrl = '[^']*'|this.apiUrl = '$API_URL'|g" frontend/script.js
-        
-        # Verify the script is valid JavaScript
-        echo "Validating JavaScript syntax..."
-        node -c frontend/script.js || {
-          echo "❌ JavaScript syntax error detected, restoring backup"
-          mv frontend/script.js.backup frontend/script.js
-          exit 1
-        }
-        
-        echo "✅ JavaScript syntax is valid"
-        
-        # Upload the updated script
-        echo "Uploading updated script.js to S3..."
-        aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/javascript"
-        
-        # Restore the original script
-        mv frontend/script.js.backup frontend/script.js
-        
-        echo "✅ Script.js updated and uploaded successfully"
-        
-    - name: Invalidate CloudFront Cache
-      if: steps.terraform-outputs.outputs.cloudfront_distribution_id != ''
-      run: |
-        echo "Invalidating CloudFront cache for updated files..."
-        aws cloudfront create-invalidation \
-          --distribution-id ${{ steps.terraform-outputs.outputs.cloudfront_distribution_id }} \
-          --paths "/index.html" "/script.js" "/styles.css" "/cv.pdf"
-        
-        echo "CloudFront cache invalidation initiated. Changes will be live in a few minutes."
+        echo "✅ Script.js fixed and cache invalidated"
           
     - name: Set Website Permissions
       run: |
