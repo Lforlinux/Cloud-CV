@@ -63,8 +63,15 @@ jobs:
         # Create a backup of the original script
         cp frontend/script.js frontend/script.js.backup
         
-        # Update the API URL in the script
-        sed -i "s|this.apiUrl = '.*'|this.apiUrl = '${{ steps.terraform-outputs.outputs.api_gateway_url }}/visitor-count'|g" frontend/script.js
+        # Update the API URL in the script (more robust regex)
+        sed -i "s|this\.apiUrl = '[^']*'|this.apiUrl = '${{ steps.terraform-outputs.outputs.api_gateway_url }}/visitor-count'|g" frontend/script.js
+        
+        # Verify the script is valid JavaScript
+        node -c frontend/script.js || {
+          echo "JavaScript syntax error detected, restoring backup"
+          mv frontend/script.js.backup frontend/script.js
+          exit 1
+        }
         
         # Upload the updated script
         aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/javascript"
@@ -75,9 +82,12 @@ jobs:
     - name: Invalidate CloudFront Cache
       if: steps.terraform-outputs.outputs.cloudfront_distribution_id != ''
       run: |
+        echo "Invalidating CloudFront cache for updated files..."
         aws cloudfront create-invalidation \
           --distribution-id ${{ steps.terraform-outputs.outputs.cloudfront_distribution_id }} \
           --paths "/index.html" "/script.js" "/styles.css" "/cv.pdf"
+        
+        echo "CloudFront cache invalidation initiated. Changes will be live in a few minutes."
           
     - name: Set Website Permissions
       run: |
