@@ -52,14 +52,4 @@ build/
 *.zip
 
 
-# Timeline scripts (don't commit these)
-scripts/*timeline*.sh
-scripts/better-timeline.sh
-scripts/realistic-*.sh
-scripts/background-*.sh
-scripts/natural-*.sh
-scripts/start-*.sh
-commit-timeline.log
-commit-process.pid
-COMMIT_TIMELINE_INFO.md
-QUICK_REFERENCE.md
+# Timeline scripts (removed)

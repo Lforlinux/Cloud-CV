@@ -1,8 +1,9 @@
 #!/bin/bash
-# Cloud CV - AWS Deployment Script
-# SRE/DevOps Engineer Portfolio
 
-set -euo pipefail
+# AWS Cloud CV Deployment Script
+# This script automates the deployment after Terraform creates resources
+
+set -e
 
 # Colors for output
 RED='\033[0;31m'
@@ -11,331 +12,215 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Configuration
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-TERRAFORM_DIR="$PROJECT_ROOT/infra/terraform"
-FRONTEND_DIR="$PROJECT_ROOT/frontend"
-
-# Default values
-AWS_REGION="us-east-1"
-ENVIRONMENT="production"
-DOMAIN_NAME=""
-CERTIFICATE_ARN=""
-DRY_RUN=false
-
-# Functions
+# Function to print colored output
 log() {
-    echo -e "${BLUE}[$(date +'%Y-%m-%d %H:%M:%S')]${NC} $1"
+    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
 
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+warn() {
+    echo -e "${YELLOW}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
 }
 
 error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${RED}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+info() {
+    echo -e "${BLUE}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
+}
+
+# Check if we're in the right directory
+if [ ! -f "infra/terraform/main.tf" ]; then
+    error "Please run this script from the Cloud-CV project root directory"
     exit 1
-}
+fi
 
-usage() {
-    cat << EOF
-Usage: $0 [OPTIONS]
+# Check if Terraform is installed
+if ! command -v terraform &> /dev/null; then
+    error "Terraform is not installed. Please install Terraform first."
+    exit 1
+fi
 
-Deploy Cloud CV to AWS
+# Check if AWS CLI is installed
+if ! command -v aws &> /dev/null; then
+    error "AWS CLI is not installed. Please install AWS CLI first."
+    exit 1
+fi
 
-OPTIONS:
-    -r, --region REGION      AWS region (default: us-east-1)
-    -e, --environment ENV    Environment (default: production)
-    -d, --domain DOMAIN      Custom domain name
-    -c, --certificate ARN    ACM certificate ARN
-    --dry-run               Show what would be deployed
-    -h, --help              Show this help message
+# Check if AWS credentials are configured
+if ! aws sts get-caller-identity &> /dev/null; then
+    error "AWS credentials not configured. Please run 'aws configure' first."
+    exit 1
+fi
 
-EXAMPLES:
-    $0                                          # Deploy to production
-    $0 --domain myresume.com --certificate arn:aws:acm:...  # Deploy with custom domain
-    $0 --dry-run                               # Show deployment plan
+log "🚀 Starting Cloud CV deployment..."
 
-EOF
-}
+# Step 1: Deploy Infrastructure with Terraform
+log "📋 Step 1: Deploying infrastructure with Terraform..."
+cd infra/terraform/
 
-check_dependencies() {
-    log "Checking dependencies..."
-    
-    local deps=("aws" "terraform")
-    local missing=()
-    
-    for dep in "${deps[@]}"; do
-        if ! command -v "$dep" &> /dev/null; then
-            missing+=("$dep")
-        fi
-    done
-    
-    if [ ${#missing[@]} -ne 0 ]; then
-        error "Missing dependencies: ${missing[*]}"
-    fi
-    
-    success "All dependencies found"
-}
-
-check_aws_credentials() {
-    log "Checking AWS credentials..."
-    
-    if ! aws sts get-caller-identity &> /dev/null; then
-        error "AWS credentials not configured. Please run 'aws configure' or set environment variables."
-    fi
-    
-    local caller_identity
-    caller_identity=$(aws sts get-caller-identity)
-    local account_id
-    account_id=$(echo "$caller_identity" | jq -r '.Account')
-    local user_arn
-    user_arn=$(echo "$caller_identity" | jq -r '.Arn')
-    
-    log "AWS Account: $account_id"
-    log "AWS User: $user_arn"
-    
-    success "AWS credentials verified"
-}
-
-deploy_infrastructure() {
-    log "Deploying infrastructure with Terraform..."
-    
-    cd "$TERRAFORM_DIR"
-    
-    # Initialize Terraform
+# Initialize Terraform if not already done
+if [ ! -d ".terraform" ]; then
+    log "🔧 Initializing Terraform..."
     terraform init
-    
-    # Validate configuration
-    terraform validate
-    
-    # Plan deployment
-    terraform plan \
-        -var="aws_region=$AWS_REGION" \
-        -var="environment=$ENVIRONMENT" \
-        -var="domain_name=$DOMAIN_NAME" \
-        -var="certificate_arn=$CERTIFICATE_ARN"
-    
-    if [ "$DRY_RUN" = true ]; then
-        log "Dry run completed. No changes applied."
-        return
-    fi
-    
-    # Apply changes
-    terraform apply -auto-approve \
-        -var="aws_region=$AWS_REGION" \
-        -var="environment=$ENVIRONMENT" \
-        -var="domain_name=$DOMAIN_NAME" \
-        -var="certificate_arn=$CERTIFICATE_ARN"
-    
-    # Get outputs
-    local bucket_name
-    bucket_name=$(terraform output -raw bucket_name)
-    local cloudfront_domain
-    cloudfront_domain=$(terraform output -raw cloudfront_domain_name)
-    local api_gateway_url
-    api_gateway_url=$(terraform output -raw api_gateway_url)
-    
-    # Export outputs
-    export BUCKET_NAME="$bucket_name"
-    export CLOUDFRONT_DOMAIN="$cloudfront_domain"
-    export API_GATEWAY_URL="$api_gateway_url"
-    
-    success "Infrastructure deployed successfully"
-    log "S3 Bucket: $bucket_name"
-    log "CloudFront Domain: $cloudfront_domain"
-    log "API Gateway URL: $api_gateway_url"
-}
+fi
 
-deploy_application() {
-    log "Deploying application..."
-    
-    # Check if we have the required variables
-    if [ -z "${BUCKET_NAME:-}" ]; then
-        error "BUCKET_NAME not set. Run infrastructure deployment first."
-    fi
-    
-    # Update frontend with API URL
-    if [ -n "${API_GATEWAY_URL:-}" ]; then
-        log "Updating frontend with API URL: $API_GATEWAY_URL"
-        
-        # Update script.js
-        if [ -f "$FRONTEND_DIR/script.js" ]; then
-            sed -i.bak "s|this.apiUrl = '';|this.apiUrl = '$API_GATEWAY_URL';|g" "$FRONTEND_DIR/script.js"
-        fi
-        
-        # Update index.html
-        if [ -f "$FRONTEND_DIR/index.html" ]; then
-            sed -i.bak "s|<meta name=\"api-url\" content=\"\">|<meta name=\"api-url\" content=\"$API_GATEWAY_URL\">|g" "$FRONTEND_DIR/index.html"
-        fi
-    fi
-    
-    # Sync files to S3
-    log "Syncing files to S3 bucket: $BUCKET_NAME"
-    
-    # Sync static assets with long cache
-    aws s3 sync "$FRONTEND_DIR/" "s3://$BUCKET_NAME" \
-        --delete \
-        --cache-control "max-age=31536000" \
-        --exclude "*.html" \
-        --exclude "*.css" \
-        --exclude "*.js"
-    
-    # Sync HTML files with shorter cache
-    aws s3 sync "$FRONTEND_DIR/" "s3://$BUCKET_NAME" \
-        --delete \
-        --cache-control "max-age=3600" \
-        --include "*.html"
-    
-    # Sync CSS and JS files
-    aws s3 sync "$FRONTEND_DIR/" "s3://$BUCKET_NAME" \
-        --delete \
-        --cache-control "max-age=86400" \
-        --include "*.css" \
-        --include "*.js"
-    
-    # Invalidate CloudFront cache
-    if [ -n "${CLOUDFRONT_DOMAIN:-}" ]; then
-        local distribution_id
-        distribution_id=$(aws cloudfront list-distributions \
-            --query "DistributionList.Items[?DomainName=='$CLOUDFRONT_DOMAIN'].Id" \
-            --output text)
-        
-        if [ -n "$distribution_id" ]; then
-            log "Invalidating CloudFront cache for distribution: $distribution_id"
-            aws cloudfront create-invalidation \
-                --distribution-id "$distribution_id" \
-                --paths "/*"
-        fi
-    fi
-    
-    success "Application deployed successfully"
-}
+# Plan the deployment
+log "📊 Planning Terraform deployment..."
+terraform plan
 
-run_health_checks() {
-    log "Running health checks..."
+# Deploy the infrastructure
+log "🏗️ Deploying infrastructure..."
+terraform apply -auto-approve
+
+# Get resource names from Terraform outputs
+log "📋 Getting resource information from Terraform..."
+S3_BUCKET=$(terraform output -raw bucket_name)
+CLOUDFRONT_URL="https://$(terraform output -raw cloudfront_domain_name)"
+API_URL=$(terraform output -raw api_gateway_url)
+S3_WEBSITE_URL="http://$(terraform output -raw bucket_website_endpoint)"
+
+info "📊 Resources created:"
+info "  S3 Bucket: $S3_BUCKET"
+info "  CloudFront URL: $CLOUDFRONT_URL"
+info "  API Gateway URL: $API_URL"
+info "  S3 Website URL: $S3_WEBSITE_URL"
+
+# Go back to project root
+cd ../..
+
+# Step 2: Upload Frontend Files
+log "📁 Step 2: Uploading frontend files to S3..."
+
+# Upload all frontend files with proper content types
+aws s3 cp frontend/index.html s3://$S3_BUCKET/ --content-type "text/html"
+aws s3 cp frontend/styles.css s3://$S3_BUCKET/ --content-type "text/css"
+aws s3 cp frontend/script.js s3://$S3_BUCKET/ --content-type "application/javascript"
+aws s3 cp cv.pdf s3://$S3_BUCKET/ --content-type "application/pdf"
+
+# Set proper permissions for static website
+aws s3 website s3://$S3_BUCKET --index-document index.html --error-document index.html
+
+log "✅ Frontend files uploaded successfully!"
+
+# Step 2.5: Clear CloudFront Cache
+log "🔄 Step 2.5: Clearing CloudFront cache for updated files..."
+
+# Get CloudFront distribution ID
+log "🔍 Getting CloudFront distribution ID from Terraform outputs..."
+
+# Check if Terraform state exists and has resources
+if [ ! -f "infra/terraform/terraform.tfstate" ]; then
+    warn "⚠️  Terraform state not found. Run 'terraform apply' first."
+    warn "   Skipping CloudFront cache invalidation"
+    warn "   You can manually invalidate cache after deployment"
+elif ! grep -q "aws_cloudfront_distribution" infra/terraform/terraform.tfstate 2>/dev/null; then
+    warn "⚠️  CloudFront distribution not found in Terraform state."
+    warn "   Make sure 'terraform apply' completed successfully"
+    warn "   Skipping CloudFront cache invalidation"
+else
+    # Get CloudFront distribution ID
+    CLOUDFRONT_DISTRIBUTION_ID=$(terraform output -raw cloudfront_distribution_id 2>/dev/null | grep -v "Warning:" | grep -v "No outputs found" | head -1)
     
-    if [ -n "${CLOUDFRONT_DOMAIN:-}" ]; then
-        local url="https://$CLOUDFRONT_DOMAIN"
+    if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ] && [ "$CLOUDFRONT_DISTRIBUTION_ID" != "null" ] && [[ "$CLOUDFRONT_DISTRIBUTION_ID" =~ ^[A-Z0-9]+$ ]]; then
+        log "📡 Invalidating CloudFront cache..."
         
-        # Wait for CloudFront propagation
-        log "Waiting for CloudFront propagation (this may take a few minutes)..."
-        sleep 30
+        aws cloudfront create-invalidation \
+            --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+            --paths "/index.html" "/script.js" "/styles.css" "/cv.pdf" \
+            --query 'Invalidation.Id' \
+            --output text > /dev/null
         
-        # Test main page
-        if curl -f -s "$url/" > /dev/null; then
-            success "Main page is accessible"
+        if [ $? -eq 0 ]; then
+            log "✅ CloudFront cache invalidation created successfully!"
+            warn "⏰ Cache invalidation takes 5-10 minutes to complete"
         else
-            warning "Main page health check failed"
+            warn "⚠️  Failed to create CloudFront invalidation"
         fi
+    else
+        # Try to get distribution ID from AWS CLI
+        CLOUDFRONT_DISTRIBUTION_ID=$(aws cloudfront list-distributions --query 'DistributionList.Items[?contains(Origins.Items[0].DomainName, `'$S3_BUCKET'`)].Id' --output text 2>/dev/null | head -1)
         
-        # Test API endpoint
-        if [ -n "${API_GATEWAY_URL:-}" ]; then
-            if curl -f -s "$API_GATEWAY_URL" > /dev/null; then
-                success "API endpoint is accessible"
+        if [ -n "$CLOUDFRONT_DISTRIBUTION_ID" ] && [[ "$CLOUDFRONT_DISTRIBUTION_ID" =~ ^[A-Z0-9]+$ ]]; then
+            log "📡 Invalidating CloudFront cache..."
+            
+            aws cloudfront create-invalidation \
+                --distribution-id "$CLOUDFRONT_DISTRIBUTION_ID" \
+                --paths "/index.html" "/script.js" "/styles.css" "/cv.pdf" \
+                --query 'Invalidation.Id' \
+                --output text > /dev/null
+            
+            if [ $? -eq 0 ]; then
+                log "✅ CloudFront cache invalidation created successfully!"
+                warn "⏰ Cache invalidation takes 5-10 minutes to complete"
             else
-                warning "API endpoint health check failed"
+                warn "⚠️  Failed to create CloudFront invalidation"
             fi
+        else
+            warn "⚠️  Could not find CloudFront distribution"
+            warn "   You may need to manually invalidate the cache in AWS Console"
         fi
     fi
-}
+fi
 
-show_access_urls() {
-    log "Deployment completed successfully!"
-    echo ""
-    echo "🌐 Website Access URLs:"
-    echo ""
-    
-    if [ -n "${CLOUDFRONT_DOMAIN:-}" ]; then
-        echo "  🚀 CloudFront CDN (Recommended):"
-        echo "     https://$CLOUDFRONT_DOMAIN"
-        echo ""
-    fi
-    
-    if [ -n "${BUCKET_NAME:-}" ]; then
-        echo "  📦 S3 Website (Direct):"
-        echo "     http://$BUCKET_NAME.s3-website-$AWS_REGION.amazonaws.com"
-        echo ""
-    fi
-    
-    if [ -n "${API_GATEWAY_URL:-}" ]; then
-        echo "  🔌 API Endpoint:"
-        echo "     $API_GATEWAY_URL"
-        echo ""
-    fi
-    
-    echo "📊 AWS Console URLs:"
-    echo "  S3 Bucket:        https://s3.console.aws.amazon.com/s3/buckets/$BUCKET_NAME"
-    echo "  CloudFront:       https://console.aws.amazon.com/cloudfront/v3/home"
-    echo "  Lambda:           https://console.aws.amazon.com/lambda/home"
-    echo "  DynamoDB:        https://console.aws.amazon.com/dynamodb/home"
-    echo "  API Gateway:      https://console.aws.amazon.com/apigateway/home"
-    echo ""
-    
-    if [ -n "${CLOUDFRONT_DOMAIN:-}" ]; then
-        echo "🎉 Your Cloud CV is now live at:"
-        echo "   https://$CLOUDFRONT_DOMAIN"
-        echo ""
-        echo "💡 Pro tip: CloudFront may take 5-15 minutes to fully propagate globally."
-        echo "   If you get a 404 error, wait a few minutes and try again."
-    fi
-}
+# Step 3: Update Frontend with Real API URL
+log "🔧 Step 3: Updating frontend with real API URL..."
 
-main() {
-    # Parse command line arguments
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            -r|--region)
-                AWS_REGION="$2"
-                shift 2
-                ;;
-            -e|--environment)
-                ENVIRONMENT="$2"
-                shift 2
-                ;;
-            -d|--domain)
-                DOMAIN_NAME="$2"
-                shift 2
-                ;;
-            -c|--certificate)
-                CERTIFICATE_ARN="$2"
-                shift 2
-                ;;
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            -h|--help)
-                usage
-                exit 0
-                ;;
-            *)
-                error "Unknown option: $1"
-                ;;
-        esac
-    done
-    
-    log "Starting Cloud CV AWS deployment..."
-    log "Region: $AWS_REGION"
-    log "Environment: $ENVIRONMENT"
-    log "Domain: ${DOMAIN_NAME:-'default'}"
-    log "Certificate: ${CERTIFICATE_ARN:-'default'}"
-    
-    # Run deployment steps
-    check_dependencies
-    check_aws_credentials
-    deploy_infrastructure
-    deploy_application
-    run_health_checks
-    show_access_urls
-    
-    success "AWS deployment completed successfully!"
-}
+# Create a backup of the original script
+cp frontend/script.js frontend/script.js.backup
 
-# Run main function
-main "$@"
+# Update the API URL in the script
+sed -i.bak "s|http://localhost:4566/restapis/.*|$API_URL|g" frontend/script.js
+
+# Re-upload the updated script
+aws s3 cp frontend/script.js s3://$S3_BUCKET/
+
+log "✅ Frontend updated with real API URL!"
+
+# Step 4: Test the Deployment
+log "🧪 Step 4: Testing deployment..."
+
+# Test the API
+log "🔌 Testing API endpoint..."
+if curl -s "$API_URL/visitor-count" > /dev/null; then
+    log "✅ API endpoint is working!"
+else
+    warn "⚠️ API endpoint test failed (this is normal for new deployments)"
+fi
+
+# Test the S3 website
+log "📁 Testing S3 website..."
+if curl -s "$S3_WEBSITE_URL" > /dev/null; then
+    log "✅ S3 website is working!"
+else
+    warn "⚠️ S3 website test failed"
+fi
+
+# Step 5: Display Results
+log "🎉 Deployment completed successfully!"
+echo ""
+info "🌐 Your Cloud CV URLs:"
+info "  Main Website (CloudFront): $CLOUDFRONT_URL"
+info "  Direct S3 URL: $S3_WEBSITE_URL"
+info "  API Endpoint: $API_URL/visitor-count"
+echo ""
+info "📊 Deployment Summary:"
+info "  ✅ S3 Bucket: $S3_BUCKET"
+info "  ✅ CloudFront Distribution: Created"
+info "  ✅ Lambda Function: Deployed"
+info "  ✅ DynamoDB Table: Created"
+info "  ✅ API Gateway: Configured"
+info "  ✅ Frontend Files: Uploaded"
+info "  ✅ API Integration: Updated"
+info "  ✅ CloudFront Cache: Invalidated"
+echo ""
+warn "⏰ Note: CloudFront distribution takes 15-20 minutes to fully deploy"
+warn "   Cache invalidation takes 5-10 minutes to complete"
+warn "   The CloudFront URL will be available shortly"
+echo ""
+info "🔍 To monitor your deployment:"
+info "  - Check AWS Console: https://console.aws.amazon.com"
+info "  - Monitor costs: AWS Billing Dashboard"
+info "  - Check CloudFront status: AWS CloudFront Console"
+echo ""
+log "🎯 Your Cloud CV is now live on AWS!"

@@ -180,12 +180,7 @@ resource "aws_cloudfront_distribution" "website" {
   default_root_object = "index.html"
 
   # Custom domain configuration (if provided)
-  dynamic "aliases" {
-    for_each = var.domain_name != "" ? [var.domain_name] : []
-    content {
-      aliases = [var.domain_name]
-    }
-  }
+  aliases = var.domain_name != "" ? [var.domain_name] : []
 
   # SSL certificate configuration
   dynamic "viewer_certificate" {
@@ -412,6 +407,14 @@ resource "aws_api_gateway_method" "visitor_counter" {
   authorization = "NONE"
 }
 
+# API Gateway OPTIONS method for CORS
+resource "aws_api_gateway_method" "visitor_counter_options" {
+  rest_api_id   = aws_api_gateway_rest_api.visitor_counter.id
+  resource_id   = aws_api_gateway_resource.visitor_counter.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
 # API Gateway integration
 resource "aws_api_gateway_integration" "visitor_counter" {
   rest_api_id = aws_api_gateway_rest_api.visitor_counter.id
@@ -423,6 +426,46 @@ resource "aws_api_gateway_integration" "visitor_counter" {
   uri                     = aws_lambda_function.visitor_counter.invoke_arn
 }
 
+# API Gateway OPTIONS integration for CORS
+resource "aws_api_gateway_integration" "visitor_counter_options" {
+  rest_api_id = aws_api_gateway_rest_api.visitor_counter.id
+  resource_id = aws_api_gateway_resource.visitor_counter.id
+  http_method = aws_api_gateway_method.visitor_counter_options.http_method
+
+  type = "MOCK"
+  request_templates = {
+    "application/json" = "{\"statusCode\": 200}"
+  }
+}
+
+# API Gateway OPTIONS method response
+resource "aws_api_gateway_method_response" "visitor_counter_options" {
+  rest_api_id = aws_api_gateway_rest_api.visitor_counter.id
+  resource_id = aws_api_gateway_resource.visitor_counter.id
+  http_method = aws_api_gateway_method.visitor_counter_options.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = true
+    "method.response.header.Access-Control-Allow-Methods" = true
+    "method.response.header.Access-Control-Allow-Origin"  = true
+  }
+}
+
+# API Gateway OPTIONS integration response
+resource "aws_api_gateway_integration_response" "visitor_counter_options" {
+  rest_api_id = aws_api_gateway_rest_api.visitor_counter.id
+  resource_id = aws_api_gateway_resource.visitor_counter.id
+  http_method = aws_api_gateway_method.visitor_counter_options.http_method
+  status_code = aws_api_gateway_method_response.visitor_counter_options.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+    "method.response.header.Access-Control-Allow-Methods" = "'GET,OPTIONS'"
+    "method.response.header.Access-Control-Allow-Origin"  = "'*'"
+  }
+}
+
 # Lambda permission for API Gateway
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowExecutionFromAPIGateway"
@@ -432,14 +475,31 @@ resource "aws_lambda_permission" "api_gateway" {
   source_arn    = "${aws_api_gateway_rest_api.visitor_counter.execution_arn}/*/*"
 }
 
+# API Gateway stage
+resource "aws_api_gateway_stage" "visitor_counter" {
+  deployment_id = aws_api_gateway_deployment.visitor_counter.id
+  rest_api_id   = aws_api_gateway_rest_api.visitor_counter.id
+  stage_name    = "prod"
+}
+
 # API Gateway deployment
 resource "aws_api_gateway_deployment" "visitor_counter" {
   depends_on = [
     aws_api_gateway_integration.visitor_counter,
+    aws_api_gateway_integration.visitor_counter_options,
+    aws_api_gateway_integration_response.visitor_counter_options,
   ]
 
   rest_api_id = aws_api_gateway_rest_api.visitor_counter.id
-  stage_name  = "prod"
+  
+  # Force redeployment when OPTIONS method changes
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_integration.visitor_counter.id,
+      aws_api_gateway_integration.visitor_counter_options.id,
+      aws_api_gateway_integration_response.visitor_counter_options.id,
+    ]))
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -482,7 +542,7 @@ output "cloudfront_distribution_arn" {
 
 output "api_gateway_url" {
   description = "URL of the API Gateway"
-  value       = "${aws_api_gateway_deployment.visitor_counter.invoke_url}/visitor-count"
+  value       = "${aws_api_gateway_stage.visitor_counter.invoke_url}/visitor-count"
 }
 
 output "dynamodb_table_name" {
