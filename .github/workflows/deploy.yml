@@ -58,15 +58,12 @@ jobs:
         aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/javascript"
         aws s3 cp cv.pdf s3://${{ steps.terraform-outputs.outputs.bucket_name }}/ --content-type "application/pdf"
         
-    - name: Fix Script.js and Invalidate Cache
+    - name: Invalidate CloudFront Cache
       run: |
-        echo "Re-uploading script.js to fix visitor counter..."
-        aws s3 cp frontend/script.js s3://${{ steps.terraform-outputs.outputs.bucket_name }}/script.js --content-type "application/javascript"
+        echo "Invalidating CloudFront cache for all files..."
+        aws cloudfront create-invalidation --distribution-id ${{ steps.terraform-outputs.outputs.cloudfront_distribution_id }} --paths "/index.html" "/styles.css" "/script.js" "/cv.pdf"
         
-        echo "Invalidating CloudFront cache for script.js..."
-        aws cloudfront create-invalidation --distribution-id ${{ steps.terraform-outputs.outputs.cloudfront_distribution_id }} --paths "/script.js"
-        
-        echo "✅ Script.js fixed and cache invalidated"
+        echo "✅ CloudFront cache invalidated for all files"
           
     - name: Set Website Permissions
       run: |
