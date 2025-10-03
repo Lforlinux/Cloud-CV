@@ -1,6 +1,6 @@
 # Cloud CV - SRE/DevOps Engineer Portfolio
 
-A modern, cloud-hosted resume showcasing 15+ years of SRE/DevOps expertise with AWS best practices.
+A modern, cloud-hosted resume showcasing SRE/DevOps expertise with AWS best practices.
 
 ## 🏗️ Architecture
 
@@ -167,10 +167,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👨‍💻 Author
 
-**SRE/DevOps Engineer** with 15+ years of experience
+**SRE/DevOps Engineer** with 12+ years of experience
 - Website: [l4linux.com](https://l4linux.com)
-- LinkedIn: [Your LinkedIn Profile]
-- GitHub: [Your GitHub Profile]
+- LinkedIn: [https://www.linkedin.com/in/lekshmin]
+- GitHub: [https://github.com/Lforlinux]
 
 ---
 

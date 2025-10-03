@@ -108,7 +108,7 @@ programming_languages:
 operating_systems:
   - name: "Linux"
     level: "Expert"
-    years: "15+"
+    years: "12+"
     description: "Linux system administration, troubleshooting, and optimization"
   - name: "Ubuntu"
     level: "Expert"
