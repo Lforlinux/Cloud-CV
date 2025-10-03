@@ -64,74 +64,11 @@ jobs:
         # Create a backup of the original script
         cp frontend/script.js frontend/script.js.backup
         
-        # Create a temporary script with the correct API URL
-        cat > frontend/script.js.tmp << 'EOF'
-/**
- * Cloud CV - Clean Version
- */
-
-class CloudCV {
-    constructor() {
-        this.apiUrl = '${{ steps.terraform-outputs.outputs.api_gateway_url }}/visitor-count';
-        this.visitorCount = 0;
-        this.init();
-    }
-
-    init() {
-        this.loadVisitorCount();
-    }
-
-    async loadVisitorCount() {
-        try {
-            const response = await fetch(this.apiUrl, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            
-            if (data.status === 'success') {
-                this.visitorCount = data.visitor_count;
-                this.updateVisitorDisplay();
-            } else {
-                console.error('API returned error:', data.message);
-                this.showError();
-            }
-        } catch (error) {
-            console.error('Error fetching visitor count:', error);
-            this.showError();
-        }
-    }
-
-    updateVisitorDisplay() {
-        const visitorElement = document.getElementById('visitor-count');
-        if (visitorElement) {
-            visitorElement.textContent = this.visitorCount;
-        }
-    }
-
-    showError() {
-        const visitorElement = document.getElementById('visitor-count');
-        if (visitorElement) {
-            visitorElement.textContent = 'Error';
-        }
-    }
-}
-
-// Initialize when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-    new CloudCV();
-});
-EOF
+        # Use a simpler approach - just replace the API URL with sed but more carefully
+        API_URL="${{ steps.terraform-outputs.outputs.api_gateway_url }}/visitor-count"
         
-        # Replace the original with the temporary file
-        mv frontend/script.js.tmp frontend/script.js
+        # Replace the API URL using a more precise pattern
+        sed -i "s|this\.apiUrl = '[^']*'|this.apiUrl = '$API_URL'|g" frontend/script.js
         
         # Verify the script is valid JavaScript
         echo "Validating JavaScript syntax..."
