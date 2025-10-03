@@ -104,7 +104,7 @@ git push origin main
 
 2. **Terraform Apply Fails**
    - Check AWS region settings
-   - Verify resource names don't conflict
+   - Verify S3 backend configuration
 
 3. **CloudFront Not Working**
    - Wait 15-20 minutes for distribution
@@ -119,7 +119,7 @@ git push origin main
 
 1. **Check GitHub Actions logs**
 2. **Test AWS CLI locally**
-3. **Verify Terraform state**
+3. **Verify Terraform state in S3**
 4. **Check CloudFront status**
 
 ## 🎉 Benefits
