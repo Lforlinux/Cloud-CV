@@ -4,173 +4,147 @@ A modern, cloud-hosted resume showcasing SRE/DevOps expertise with AWS best prac
 
 ## 🏗️ Architecture
 
+![Cloud CV Architecture](docs/Cloud-CV.png)
+
 This project demonstrates enterprise-grade DevOps practices:
 
 - **Infrastructure as Code**: Terraform for reproducible infrastructure
 - **CI/CD Pipeline**: GitHub Actions for automated deployment
-- **Containerization**: Docker for consistent environments
 - **Serverless**: AWS Lambda for visitor counter
 - **CDN**: CloudFront for global content delivery
 - **Security**: SSL/TLS, IAM roles, least privilege access
 - **Monitoring**: CloudWatch for observability
 
-## 🚀 Features
-
-- **One-Click Deployment**: Automated CI/CD pipeline
-- **Visitor Counter**: Serverless Lambda function with DynamoDB
-- **Global CDN**: CloudFront distribution for performance
-- **SSL/TLS**: Automatic certificate management
-- **Responsive Design**: Mobile-first approach
-- **SEO Optimized**: Meta tags and structured data
-
-## 🛠️ Tech Stack
-
-### Frontend
-- HTML5, CSS3, JavaScript (ES6+)
-- Responsive design with CSS Grid/Flexbox
-- Modern JavaScript with async/await
-- Jekyll for dynamic content management
-
-### Infrastructure
-- **AWS S3**: Static website hosting
-- **AWS CloudFront**: CDN and SSL termination
-- **AWS Lambda**: Serverless visitor counter
-- **AWS DynamoDB**: NoSQL database for visitor data
-- **AWS Route53**: DNS management
-- **AWS Certificate Manager**: SSL certificates
-- **AWS IAM**: Security and access management
-
-### DevOps Tools
-- **Terraform**: Infrastructure as Code
-- **GitHub Actions**: CI/CD pipeline
-- **Docker**: Containerization
-- **LocalStack**: Local AWS development
-- **Git**: Version control
-
-### Local Development
-- **LocalStack**: AWS cloud emulation
-- **Docker Compose**: Multi-service orchestration
-- **Prometheus**: Metrics collection
-- **Grafana**: Dashboards and visualization
-
-## 📁 Project Structure
-
-```
-├── .github/workflows/     # GitHub Actions CI/CD
-├── frontend/              # Static website files
-├── infra/                 # Terraform infrastructure
-│   ├── lambda/           # Lambda function code
-│   └── terraform/        # Infrastructure definitions
-├── docker/               # Docker configuration
-├── docs/                 # Documentation
-└── scripts/              # Deployment scripts
-```
-
-## 🚀 Quick Start
+## 🚀 Local Development
 
 ### Prerequisites
-- AWS CLI configured
-- Terraform >= 1.0
 - Docker
-- Node.js (for local development)
+- AWS CLI (for LocalStack)
 
-### Local Development
+### Start LocalStack
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd Cloud-CV
+# Start LocalStack environment
+./scripts/local-dev-start.sh start
 
-# Start local development environment
-./scripts/local-dev.sh
+# Upload files to local S3
+./scripts/local-dev-start.sh upload
 
-# Start with LocalStack (AWS emulation)
-./scripts/local-dev.sh --service localstack
+# Check status
+./scripts/local-dev-start.sh status
 
-# Deploy to LocalStack
-./scripts/localstack-deploy.sh
-
-# Access the site
-open http://localhost:4000
+# Stop when done
+./scripts/local-dev-start.sh stop
 ```
 
-### Deployment
-```bash
-# Initialize Terraform
-cd infra/terraform
-terraform init
+### Access Local Development
+- **Website**: http://localhost:4566/cloud-cv-local/index.html
+- **S3 Browser**: http://localhost:4566/cloud-cv-local/
+- **LocalStack Health**: http://localhost:4566/_localstack/health
 
-# Plan the deployment
-terraform plan
+## 🚀 Production Deployment
 
-# Deploy the infrastructure
-terraform apply
+### Infrastructure as Code (Terraform)
+
+The project uses Terraform to provision AWS resources:
+
+<details>
+<summary>📋 View Terraform Configuration</summary>
+
+```hcl
+# S3 Bucket for static website hosting
+resource "aws_s3_bucket" "website" {
+  bucket = "cloud-cv-${random_id.bucket_suffix.hex}"
+}
+
+# CloudFront distribution for CDN
+resource "aws_cloudfront_distribution" "website" {
+  origin {
+    domain_name = aws_s3_bucket.website.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.website.id
+  }
+}
+
+# Lambda function for visitor counter
+resource "aws_lambda_function" "visitor_counter" {
+  filename         = "../lambda/visitor_counter.zip"
+  function_name    = "cloud-cv-visitor-counter"
+  runtime         = "python3.11"
+}
+
+# DynamoDB table for visitor data
+resource "aws_dynamodb_table" "visitor_counter" {
+  name           = "visitor-counter"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "id"
+}
 ```
+</details>
 
-## 🔧 Configuration
+### GitHub Actions CI/CD Pipeline
 
-### Environment Variables
-Create a `.env` file:
-```bash
-AWS_REGION=us-east-1
-DOMAIN_NAME=your-domain.com
-BUCKET_NAME=your-resume-bucket
+The project uses GitHub Actions for automated deployment via `.github/workflows/deploy.yml`:
+
+<details>
+<summary>🔄 View GitHub Actions Workflow</summary>
+
+```yaml
+name: Deploy Cloud CV
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Deploy Infrastructure
+        run: |
+          cd infra/terraform
+          terraform init
+          terraform plan
+          terraform apply -auto-approve
+      
+      - name: Upload Frontend Files
+        run: |
+          aws s3 cp frontend/index.html s3://$(terraform output -raw bucket_name)/
+          aws s3 cp frontend/styles.css s3://$(terraform output -raw bucket_name)/
+          aws s3 cp frontend/script.js s3://$(terraform output -raw bucket_name)/
+          aws s3 cp cv.pdf s3://$(terraform output -raw bucket_name)/
+      
+      - name: Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation --distribution-id $(terraform output -raw cloudfront_distribution_id) --paths "/*"
 ```
+</details>
 
-### GitHub Secrets
-Configure these secrets in your GitHub repository:
+### Deployment Process
+1. **Push to main branch** triggers GitHub Actions
+2. **Terraform applies** infrastructure changes
+3. **Frontend files** are uploaded to S3
+4. **CloudFront cache** is invalidated
+5. **Website** is live with latest changes
+
+### Required GitHub Secrets
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
-- `AWS_REGION`
-
-## 📊 Monitoring
-
-- **CloudWatch**: Application and infrastructure metrics
-- **AWS X-Ray**: Distributed tracing
-- **Cost Monitoring**: AWS Cost Explorer
-
-## 🔒 Security
-
-- **SSL/TLS**: Automatic certificate management
-- **IAM Roles**: Least privilege access
-- **VPC**: Network isolation (if needed)
-- **WAF**: Web Application Firewall (optional)
-
-## 🎯 Best Practices Demonstrated
-
-1. **Infrastructure as Code**: All resources defined in Terraform
-2. **GitOps**: Git-based deployment workflow
-3. **Immutable Infrastructure**: No manual changes to production
-4. **Security by Design**: IAM, encryption, least privilege
-5. **Monitoring**: Comprehensive observability
-6. **Cost Optimization**: Right-sized resources
-7. **Disaster Recovery**: Multi-AZ deployment
-8. **Performance**: CDN and caching strategies
-
-## 📈 Performance
-
-- **Lighthouse Score**: 95+ across all metrics
-- **Core Web Vitals**: Optimized for user experience
-- **Global CDN**: Sub-100ms response times
-- **Compression**: Gzip/Brotli compression enabled
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 👨‍💻 Author
 
 **SRE/DevOps Engineer** with 12+ years of experience
 - Website: [l4linux.com](https://l4linux.com)
-- LinkedIn: [https://www.linkedin.com/in/lekshmin]
-- GitHub: [https://github.com/Lforlinux]
+- LinkedIn: [https://www.linkedin.com/in/lekshmin](https://www.linkedin.com/in/lekshmin)
+- GitHub: [https://github.com/Lforlinux](https://github.com/Lforlinux)
 
 ---
 
